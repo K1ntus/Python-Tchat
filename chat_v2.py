@@ -122,7 +122,26 @@ def join_channel(socket, channel_to_join):
         res = "vous avez rejoins le channel " + str(channel_to_join) +"\n"
         socket.send(res.encode())
             
-
+def kick_from_channel(entry):
+    print(entry)
+    entry = remove_suffix(entry) #Removing 'KICK' prefix
+    channel_name = get_prefix_from_data(entry)  #get the channel prefix
+    print(entry)
+    
+    entry = remove_suffix(entry) #Removing 'channel' prefix
+    channel_name = get_prefix_from_data(entry)  #get the user name
+    print(entry)
+    
+    (ip,a,b,c) = socket_to_kick.getsockname()
+    print("user: "+ip+msg_to_send)
+    nick = get_nick_for_socket(nick_dictionnary,socket) #we get the nick to print as msg
+    
+    for i in socket_list:   #On parcours toutes les sockets SAUF la socket d'écoute
+        (sockaddr,port,a,b) = i.getsockname()   #we get information from the i socket
+        if(sockaddr == ip_to_kill):             #we compare the ip from the i socket with the one to kill
+            leave_channel(socket_to_kick,channel_name)
+            msg_to_send = ("Vous avez été expulsé du canal ["+str(channel_name)+"]\n")
+            i.send(msg_to_send.encode())
     
 def remove_msg_tag_suffix(data):
     i=0
@@ -139,19 +158,19 @@ def remove_suffix(data):
     return res
 
 def speak_on_channel(socket, channel_name_and_data,socket_list):
-    channel_name_and_data=channel_name_and_data.decode()
+    channel_name_and_data=channel_name_and_data.decode()    #we convert the entry text from the socket
     
-    channel_name_and_data = remove_msg_tag_suffix(channel_name_and_data)
+    channel_name_and_data = remove_msg_tag_suffix(channel_name_and_data)    #we remove the first suffix ie. MSG 
     
-    channel_name = get_prefix_from_data(channel_name_and_data)
+    channel_name = get_prefix_from_data(channel_name_and_data)  #We get the new suffix (ie. channel name)
     
-    channel_name_and_data = remove_suffix(channel_name_and_data)
+    channel_name_and_data = remove_suffix(channel_name_and_data)    #we remove the actual suffix (ie. channel name) from the main string
     
-    msg_data = channel_name_and_data
-    print(channel_name +" > "+ msg_data)
+    msg_data = channel_name_and_data #only the data has been kept and can be save
+    print(channel_name +" > "+ msg_data)    #debug
 
-    msg_to_send = "["+channel_name+"]" + get_nick_for_socket(nick_dictionnary,socket) + ": "+msg_data
-    broadcast_on_channel(msg_to_send, channel_name, socket_list)
+    msg_to_send = "["+channel_name+"]" + get_nick_for_socket(nick_dictionnary,socket) + ": "+msg_data   #format the text that will be broadcasted on the channel
+    broadcast_on_channel(msg_to_send, channel_name, socket_list)    #broadcast the msg on the chanel
 
 def get_channel_from_name(channel_name):
     print("a")
@@ -185,7 +204,7 @@ def decode_and_compare(data,l,sock):
         return True
     
     if string == "KICK":        #no channel has been made so actually useless and TODO
-        print("kick")
+        kick_from_channel(data)
         return True
     
     if string == "MSG":         #Same
