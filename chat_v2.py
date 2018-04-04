@@ -3,7 +3,7 @@ import select
 import threading
 
 #JOIN, PART, NICK, LIST, KILL fonctionnels
-#les channels presque bons
+#normalement les channels sont bons
 
 s = socket.socket(family=socket.AF_INET6, type=socket.SOCK_STREAM, proto=0, fileno=None)    #define the socket, putting it IPv6, TCP, etc
 
@@ -17,31 +17,30 @@ socket_list=[s]     #init the socket list with the listening one
 
 
 nick_dictionnary={ip:"server"}
-channel_list = ["world"]
 channel_dictionnary = {ip:["world"]}
 
 #print(nick_dictionnary)
 
-def get_nick_for_socket(nick_dico, socket):
+def get_nick_for_socket(nick_dico, socket): #get the nickname of a socket
     try:
-        (ip,a,b,c) = socket.getsockname()
-        res = nick_dictionnary[ip]
+        (ip,a,b,c) = socket.getsockname()   #get the ip of the socket
+        res = nick_dictionnary[ip]          #check if a nick is linked to this ip
     except KeyError:    #if user doesnt have any nick
         res = ip
     return res
 
 def set_nick_for_socket(nick_dico, socket, nick):
-    (ip,a,b,c) = socket.getsockname()
-    nick_dico[ip]=nick
+    (ip,a,b,c) = socket.getsockname()   #get the ip of the socket
+    nick_dico[ip]=nick                  #attribute the nick parameters to this ip
     return True
     
     
 
-def cast_msg_to_everyone(l,data,socket):
+def cast_msg_to_everyone(l,data,socket):                #global channel casting
     nick = get_nick_for_socket(nick_dictionnary,socket) #we get the nick to print as msg
     for j in l:   #On parcours toutes les sockets SAUF la socket d'écoute
         if not j == s:
-            res = nick+"/ "+data.decode()
+            res ="[global]"+nick+"> "+data.decode()
             j.send(res.encode())
 
 def cast_to_everyone(l,data):   #like system msg, so no real users but we could use cast_msg_to_everyone with the nick of the listen socket (which his nick equals to "server")
@@ -82,54 +81,53 @@ def get_suffix_from_data(data): #get the suffix (ie the second word) when a clie
     res = ""
     prefix =""
     
-    while not (data[i] == " " or data[i] == "\n"or data == b''):
+    while not (data[i] == " " or data[i] == "\n"or data == b''):    #go throught the first word
         prefix=prefix+data[i]
         i=i+1
 
-    i=i+1
-    while not (data[i] == " " or data[i] == "\n"or data == b''):
+    i=i+1   #skip the space after the first word
+    while not (data[i] == " " or data[i] == "\n"or data == b''):    #second word
         res = res+data[i]
         i=i+1
     return res
 
 
 def leave_channel(socket,channel_to_leave):
-    (ip,a,b,c) = socket.getsockname()
+    (ip,a,b,c) = socket.getsockname()   #get the ip of the socket and some useless informations
     print(ip + "left the channel " + channel_to_leave)
     try:
-        channel_dictionnary[ip].remove(channel_to_leave)
-        res = "vous avez quitté le channel " + str(channel_to_leave) +"\n"
-        socket.send(res.encode())
-    except ValueError:
+        channel_dictionnary[ip].remove(channel_to_leave)    #we remove the channel to the channel list linked to this ip
+        res = "Vous avez quitté le channel " + str(channel_to_leave) +"\n"
+        socket.send(res.encode())   #we inform the user that he just left the channel
+        broadcast_on_channel((ip+" left the channel "+channel_to_leave+"\n"), channel_to_leave, socket_list)#we broadcast a msg to the channel which inform the users that one has left
+    except ValueError:              #if the channel_name isnt on the list linked to this ip of the dictionnary
         print("you are not on this channel")
 
 def join_channel(socket, channel_to_join):
     (ip,a,b,c) = socket.getsockname()
     nick = get_nick_for_socket(nick_dictionnary,socket) #we get the nick to print as msg
-    #print(ip + "joined the channel " + channel_to_join)
-
-    #print("before:",channel_dictionnary)
+    
     try:
-        for i in channel_dictionnary[ip]:#not allow to join multiple time the same channel
+        for i in channel_dictionnary[ip]:   #not allow to join multiple time the same channel
             if str(channel_to_join) == i:
                 return False
         channel_dictionnary[ip].append(str(channel_to_join))
-        res = "vous avez rejoins le channel " + str(channel_to_join) +"\n"
+        res = "Vous avez rejoins le channel " + str(channel_to_join) +"\n"
         socket.send(res.encode())
     except KeyError:
         channel_dictionnary.update({ip:["world"]})
         channel_dictionnary[ip].append(str(channel_to_join))
-        res = "vous avez rejoins le channel " + str(channel_to_join) +"\n"
+        res = "Vous avez rejoins le channel " + str(channel_to_join) +"\n"
         socket.send(res.encode())
             
 def kick_from_channel(entry):
     print(entry)
-    entry = remove_suffix(entry) #Removing 'KICK' prefix
-    channel_name = get_prefix_from_data(entry)  #get the channel prefix
+    entry = remove_suffix(str(entry)) #Removing 'KICK' prefix
+    channel_name = get_prefix_from_data(str(entry))  #get the channel prefix
     print(entry)
     
-    entry = remove_suffix(entry) #Removing 'channel' prefix
-    channel_name = get_prefix_from_data(entry)  #get the user name
+    entry = remove_suffix(str(entry)) #Removing 'channel' prefix
+    channel_name = get_prefix_from_data(str(entry)) #get the user name
     print(entry)
     
     (ip,a,b,c) = socket_to_kick.getsockname()
@@ -141,6 +139,7 @@ def kick_from_channel(entry):
         if(sockaddr == ip_to_kill):             #we compare the ip from the i socket with the one to kill
             leave_channel(socket_to_kick,channel_name)
             msg_to_send = ("Vous avez été expulsé du canal ["+str(channel_name)+"]\n")
+            bytes(msg_to_send,"UTF-8")
             i.send(msg_to_send.encode())
     
 def remove_msg_tag_suffix(data):
@@ -172,8 +171,6 @@ def speak_on_channel(socket, channel_name_and_data,socket_list):
     msg_to_send = "["+channel_name+"]" + get_nick_for_socket(nick_dictionnary,socket) + ": "+msg_data   #format the text that will be broadcasted on the channel
     broadcast_on_channel(msg_to_send, channel_name, socket_list)    #broadcast the msg on the chanel
 
-def get_channel_from_name(channel_name):
-    print("a")
 
 #channel_dictionnary
 def broadcast_on_channel(msg, channel, socket_list):
@@ -226,17 +223,22 @@ def decode_and_compare(data,l,sock):
 
 
 def command_kill(ip_to_kill, socket_list):
-    print("command kill asked")
-    
     bytes(ip_to_kill, "UTF-8")
     for i in socket_list:   #On parcours toutes les sockets SAUF la socket d'écoute
         (sockaddr,port,a,b) = i.getsockname()   #we get information from the i socket
         if(sockaddr == ip_to_kill):             #we compare the ip from the i socket with the one to kill
-            print("ip:",sockaddr,"get killed")
+            print("ip: --",sockaddr,"-- get killed")
             delete_nick(nick_dictionnary, i)
-            socket_list.remove(i)   #remove the socket from the list
+            socket_list.remove(i)               #remove the socket from the list
             i.close()
             notify_on_leave(socket_list,addr)
+            return
+
+    print("no ip founds like that ... Looking for nickname...\n")
+    for i in nick_dictionnary:
+        if ip_to_kill == nick_dictionnary[i]:
+            print("user: --"+ip_to_kill+"-- with the ip: --"+i+"-- has been found")
+            command_kill(i, socket_list)
             return
     print("No socket linked with this ip")  #if no socket has been found with this ip
 
@@ -269,7 +271,7 @@ def remove_socket(socket_list,socket):
 
 
 
-while(1):
+while(1):   #infinite loop
     (readable_socket, a,b) = select.select(socket_list, [],[])  #Work like a crossroad
     for i in readable_socket:   #for each socket on the list
         
@@ -281,7 +283,7 @@ while(1):
 
                 
         else:   #else we get the data
-            data = i.recv(1500) #We receive the data of a length of 1500B
+            data = i.recv(1500) #We receive the data of a length of 1500Bytes
             
             if not data or data == '\n' or data == b'':    #if the data formatting is like nothing, or user closed the service
                 j = remove_socket(socket_list,i)
