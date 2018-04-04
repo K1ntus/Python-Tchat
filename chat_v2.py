@@ -124,27 +124,34 @@ def join_channel(socket, channel_to_join):
             
 
     
+def remove_msg_tag_suffix(data):
+    i=0
+    res=data
+    if res.startswith('MSG '):
+        res = res[len('MSG '):]
+    return res
+
 def remove_suffix(data):
     i=0
-    while not (data[i] == " " or data[i] == "\n"or data == b''):
-        data.replace(data[i], "",1)
-        i=i+1
-    if data[i] == " ":
-        data.replace(" ", "",1)
-    return data
+    res=data
+    if res.startswith(get_prefix_from_data(data)+" "):
+        res = res[len(get_prefix_from_data(data)+" "):]
+    return res
 
 def speak_on_channel(socket, channel_name_and_data,socket_list):
     channel_name_and_data=channel_name_and_data.decode()
-    channel_name_and_data = remove_suffix(channel_name_and_data)
-    print("chan name+data: "+channel_name_and_data)
+    
+    channel_name_and_data = remove_msg_tag_suffix(channel_name_and_data)
+    
     channel_name = get_prefix_from_data(channel_name_and_data)
+    
     channel_name_and_data = remove_suffix(channel_name_and_data)
-    channel_name = get_prefix_from_data(channel_name_and_data)
-    print("channel_name: "+channel_name)
-    msg_data = remove_suffix(channel_name_and_data)
-    print("message data: "+msg_data)
-    print("channel_name > "+msg_data)
-    broadcast_on_channel(msg_data, channel_name, socket_list)
+    
+    msg_data = channel_name_and_data
+    print(channel_name +" > "+ msg_data)
+
+    msg_to_send = "["+channel_name+"]" + get_nick_for_socket(nick_dictionnary,socket) + ": "+msg_data
+    broadcast_on_channel(msg_to_send, channel_name, socket_list)
 
 def get_channel_from_name(channel_name):
     print("a")
